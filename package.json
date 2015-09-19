@@ -1,0 +1,18 @@
+{
+  "name": "polylove",
+  "version": "0.0.1",
+  "description": "",
+  "main": "polylove.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "lovefield": "^2.0.63",
+    "polylove-sql-parser": "jaune/polylove-sql-parser"
+  },
+  "devDependencies": {
+    "json-loader": "^0.5.3"
+  }
+}

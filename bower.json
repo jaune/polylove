@@ -1,0 +1,22 @@
+{
+  "name": "polylove",
+  "main": "dist/polylove.global.js",
+  "version": "0.0.1",
+  "authors": [
+    "jaune <JauneLaCouleur@gmail.com>"
+  ],
+  "moduleType": [
+    "globals"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "lovefield": "~2.0.63"
+  }
+}
