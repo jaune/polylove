@@ -53,7 +53,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var lf = __webpack_require__(2);
-	var sqlSelectParser = __webpack_require__(3);
+	var sqlSelectParse = __webpack_require__(3);
 	var lfDatabase;
 	
 	var lfReadyCallbacks = [];
@@ -115,15 +115,32 @@
 	    q.where(this.buildWhere(queryObject.where));
 	  }
 	
+	   
+	
 	  // ORDER BY
 	  if (Array.isArray(queryObject.orderBy)) {
 	    queryObject.orderBy.forEach(function (o) {
 	      var d;
 	
-	      if (o[2] == 'DESC') {
-	        d = lf.Order.DESC;
-	      } else if (o[2] == 'ASC') {
-	        d = lf.Order.ASC;
+	
+	
+	      if (typeof o[2] == 'string') {
+	        d = lf.Order[o[2].toUpperCase()];
+	      } else if (typeof o[2] == 'object') {
+	        switch (o[2].type) {
+	          case 'constant':
+	            d = lf.Order[this.constants[o[2].name].toUpperCase()];
+	          break;
+	          case 'property':
+	            console.log('----*----');
+	            d = this.bind(o[2]);
+	          break;
+	          default:
+	            throw 'Unsupported binding direction !'
+	        }
+	      }
+	      else {
+	        throw 'Invalid direction !'
 	      }
 	      q.orderBy(this.table(o[0])[o[1]], d);
 	    }, this);
@@ -170,10 +187,11 @@
 	  return (new lfQueryBuilder(db, options)).build();
 	}
 	
-	function lfParseSQLSelect(queryString, constants) {
+	function lfParseSQLSelect(queryObject, constants) {
+	
 	  return function (db) { return lfBuildQuery(db, this); }.bind({
 	    constants: constants,
-	    query: sqlSelectParser.parse(queryString)
+	    query: queryObject
 	  });
 	}
 	
@@ -189,7 +207,8 @@
 	
 	  var query = null;
 	  var queue = [];
-	  var createQuery = lfParseSQLSelect(queryString, constants);
+	  var queryObject = sqlSelectParse(queryString)
+	  var createQuery = lfParseSQLSelect(queryObject, constants);
 	
 	  this.behavior.properties[propertyName] = {
 	    type: Array,
@@ -197,12 +216,10 @@
 	    notify: true
 	  };
 	
-	  this.behavior.observers.push('_'+propertyName+'Observer(year)');
+	  this.behavior.observers.push('_'+propertyName+'Observer('+queryObject.properties.join(', ')+')');
 	
 	  lfReady(function (db) {
-	
 	    query = createQuery(db)
-	    
 	    var task;
 	    while (task = queue.shift()){
 	      runQuery.apply(null, task);
@@ -219,8 +236,8 @@
 	    });
 	  }
 	
-	  this.behavior['_'+propertyName+'Observer'] = function (year) {
-	    runQuery(this, [year]);
+	  this.behavior['_'+propertyName+'Observer'] = function () {
+	    runQuery(this, Array.prototype.slice(arguments, 0));
 	  }; 
 	};
 	
@@ -275,7 +292,7 @@
 	  connect: lfConnect,
 	  behavior: lfBehavior,
 	  getErrorMessage: function (error) {
-	    var error_code = __webpack_require__(4);
+	    var error_code = __webpack_require__(5);
 	    var parts = url.parse(error.message, true);
 	    var message = error_code[error.code];
 	
@@ -299,6 +316,70 @@
 
 /***/ },
 /* 3 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var parser = __webpack_require__(4);
+	
+	function flatten(toFlatten) {
+	  if (Array.isArray(toFlatten) && toFlatten.length > 0) {
+	    var head = toFlatten[0];
+	    var tail = toFlatten.slice(1);
+	
+	    return flatten(head).concat(flatten(tail));
+	  } else {
+	    return [].concat(toFlatten);
+	  }
+	};
+	
+	module.exports = function (input) {
+		var data = parser.parse(input);
+	
+	//	console.log(flatten(data.orderBy));
+	
+	  var constants = {};
+	  var propertyByNames = {};
+	  var propertyByIndexes = [];
+	
+	  var propIndex = 0;
+	
+	
+	  flatten(data.where).forEach(function (part) {
+	    if (typeof part == 'object'){
+	      switch(part.type) {
+	        case 'property': 
+	          if (!propertyByNames.hasOwnProperty(part.name)) {
+	            propertyByIndexes.push(part.name);
+	          }
+	        break;
+	        case 'constant': constants[part.name] = 1; break;
+	      }
+	    }
+	  });
+	
+	
+	  flatten(data.orderBy).forEach(function (part) {
+	    if (typeof part == 'object'){
+	      switch(part.type) {
+	        case 'property':
+	          if (!propertyByNames.hasOwnProperty(part.name)) {
+	            propertyByIndexes.push(part.name);
+	          }
+	        break;
+	        case 'constant': constants[part.name] = 1; break;
+	      }
+	    }
+	  });
+	
+	
+	
+	  data.properties = propertyByIndexes;
+	  data.constants = Object.keys(constants);
+	
+		return data;
+	}
+
+/***/ },
+/* 4 */
 /***/ function(module, exports) {
 
 	module.exports = (function() {
@@ -995,6 +1076,9 @@
 	        } else {
 	          s0 = peg$FAILED;
 	          if (peg$silentFails === 0) { peg$fail(peg$c21); }
+	        }
+	        if (s0 === peg$FAILED) {
+	          s0 = peg$parseValue();
 	        }
 	      }
 	
@@ -1793,7 +1877,7 @@
 
 
 /***/ },
-/* 4 */
+/* 5 */
 /***/ function(module, exports) {
 
 	module.exports = {

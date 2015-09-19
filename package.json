@@ -13,6 +13,8 @@
     "polylove-sql-parser": "jaune/polylove-sql-parser"
   },
   "devDependencies": {
-    "json-loader": "^0.5.3"
+    "chai": "^3.2.0",
+    "json-loader": "^0.5.3",
+    "mocha": "^2.3.2"
   }
 }

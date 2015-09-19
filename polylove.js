@@ -1,5 +1,5 @@
 var lf = require('lovefield');
-var sqlSelectParser = require('polylove-sql-parser');
+var sqlSelectParse = require('polylove-sql-parser');
 var lfDatabase;
 
 var lfReadyCallbacks = [];
@@ -61,15 +61,32 @@ lfQueryBuilder.prototype.build = function() {
     q.where(this.buildWhere(queryObject.where));
   }
 
+   
+
   // ORDER BY
   if (Array.isArray(queryObject.orderBy)) {
     queryObject.orderBy.forEach(function (o) {
       var d;
 
-      if (o[2] == 'DESC') {
-        d = lf.Order.DESC;
-      } else if (o[2] == 'ASC') {
-        d = lf.Order.ASC;
+
+
+      if (typeof o[2] == 'string') {
+        d = lf.Order[o[2].toUpperCase()];
+      } else if (typeof o[2] == 'object') {
+        switch (o[2].type) {
+          case 'constant':
+            d = lf.Order[this.constants[o[2].name].toUpperCase()];
+          break;
+          case 'property':
+            console.log('----*----');
+            d = this.bind(o[2]);
+          break;
+          default:
+            throw 'Unsupported binding direction !'
+        }
+      }
+      else {
+        throw 'Invalid direction !'
       }
       q.orderBy(this.table(o[0])[o[1]], d);
     }, this);
@@ -116,10 +133,11 @@ function lfBuildQuery(db, options) {
   return (new lfQueryBuilder(db, options)).build();
 }
 
-function lfParseSQLSelect(queryString, constants) {
+function lfParseSQLSelect(queryObject, constants) {
+
   return function (db) { return lfBuildQuery(db, this); }.bind({
     constants: constants,
-    query: sqlSelectParser.parse(queryString)
+    query: queryObject
   });
 }
 
@@ -135,7 +153,8 @@ lfBehaviorBuilder.prototype.push = function(propertyName, queryString, constants
 
   var query = null;
   var queue = [];
-  var createQuery = lfParseSQLSelect(queryString, constants);
+  var queryObject = sqlSelectParse(queryString)
+  var createQuery = lfParseSQLSelect(queryObject, constants);
 
   this.behavior.properties[propertyName] = {
     type: Array,
@@ -143,12 +162,10 @@ lfBehaviorBuilder.prototype.push = function(propertyName, queryString, constants
     notify: true
   };
 
-  this.behavior.observers.push('_'+propertyName+'Observer(year)');
+  this.behavior.observers.push('_'+propertyName+'Observer('+queryObject.properties.join(', ')+')');
 
   lfReady(function (db) {
-
     query = createQuery(db)
-    
     var task;
     while (task = queue.shift()){
       runQuery.apply(null, task);
@@ -165,8 +182,8 @@ lfBehaviorBuilder.prototype.push = function(propertyName, queryString, constants
     });
   }
 
-  this.behavior['_'+propertyName+'Observer'] = function (year) {
-    runQuery(this, [year]);
+  this.behavior['_'+propertyName+'Observer'] = function () {
+    runQuery(this, Array.prototype.slice(arguments, 0));
   }; 
 };
 
