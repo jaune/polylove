@@ -70,13 +70,8 @@ describe('Polylove', function() {
 		expect(polylove).to.be.an('object');	
 	});
 
-/*
+
   describe('#behavior()', function() {
-  	
-
-
-    after(function() {
-    });
 
     it('SELECT', function () {
       var b = polylove.behavior({
@@ -88,7 +83,7 @@ describe('Polylove', function() {
     });
 
   });
-*/
+
   describe('QueryManager', function() {
     describe('#createQuery()', function() {
       it('SELECT * FROM Movie WHERE Movie.year = {{year}} ORDER BY Movie.title {{direction}}', function () {

@@ -1682,7 +1682,7 @@
 	lfBehaviorBuilder.prototype.push = function(propertyName, queryString, constants) {
 	  constants = constants || {};
 	
-	  var query = queryManager.createQuery(queryString, constants);
+	  var query = this.queryManager.create(queryString, constants);
 	
 	  this.behavior.properties[propertyName] = {
 	    type: Array,
@@ -1694,7 +1694,13 @@
 	
 	  this.behavior['_'+propertyName+'Observer'] = function () {
 	    var me = this;
-	    query.run(Array.prototype.slice.call(arguments, 0), function (error, rows) {
+	    var propertyValues = {};
+	
+	    query.parameterNames.forEach(function (name, index) {
+	      propertyValues[name] = arguments[index];
+	    });  
+	
+	    query.run(propertyValues, function (error, rows) {
 	      me.notifyPath(propertyName, rows);
 	    });
 	  }; 
@@ -1802,14 +1808,13 @@
 /***/ function(module, exports) {
 
 	
-	function lfQueryBuilder (db, queryObject, constantValues) {
+	function lfQueryBuilder (db, queryObject, propertyValues, constantValues) {
 	  this.db = db;
 	  this.alias = {};
 	  this.queryObject = queryObject;
 	
 	  this.constantValues = constantValues;
-	
-	  this.parameterValues = {};
+	  this.propertyValues = propertyValues;
 	}
 	
 	lfQueryBuilder.prototype.table = function(n) {
@@ -1830,10 +1835,6 @@
 	
 	  throw 'Invalid table name';      
 	};
-	
-	lfQueryBuilder.prototype.setParameters = function (parameters){
-	  return this.parameterValues = parameters;
-	}
 	
 	lfQueryBuilder.prototype.build = function() {
 	  var q, db = this.db;
@@ -1874,7 +1875,7 @@
 	            d = lf.Order[this.constantValues[o[2].name].toUpperCase()];
 	          break;
 	          case 'property':
-	            d = this.parameterValues[o[2].name];
+	            d = this.propertyValues[o[2].name];
 	          break;
 	          default:
 	            throw 'Unsupported binding direction !'
@@ -1900,14 +1901,14 @@
 	      a = me.table(w[1][0])[w[1][1]];
 	      // ['=', ['table', 'a'], {type: 'property', name: 'b', index: 0}]
 	      if (w[2].type === 'property') {
-	        b = me.parameterValues[w[2].name];
+	        b = me.propertyValues[w[2].name];
 	      // ['=', ['table', 'a'], {type: 'constant', name: 'b', index: 0}]
 	      } else if (w[2].type === 'constant') {
 	        b = me.constantValues[w[2].name];
 	      } else {
 	        throw 'Error';
 	      }
-	      
+	
 	      return a.eq(b);
 	    })();
 	  }
@@ -1943,14 +1944,12 @@
 	  this.queryObject = null;
 	};
 	
-	Query.prototype.run = function(parameters, next) {
+	Query.prototype.run = function(propertyValues, next) {
 	  if (!this.db) {
 	    return;
 	  }
 	
-	  var builder = new QueryBuilder(this.db, this.queryObject, this.constantValues);
-	
-	  builder.setParameters(parameters);
+	  var builder = new QueryBuilder(this.db, this.queryObject, propertyValues, this.constantValues);
 	
 	  builder.build().exec()
 	  .then(function(rows) {
@@ -1986,6 +1985,7 @@
 	
 	  q.queryObject = queryObject;
 	  q.constantValues = constantValues;
+	  q.parameterNames  = queryObject.properties;
 	
 	  this.queries.push(q);
 	
